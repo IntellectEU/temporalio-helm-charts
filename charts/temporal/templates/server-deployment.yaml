@@ -44,13 +44,6 @@ spec:
           {{- toYaml . | nindent 8}}
         {{- end }}
         {{- if $.Values.cassandra.enabled }}
-        - name: check-cassandra-service
-          image: busybox
-          command: ['sh', '-c', 'until nc -z {{ include "cassandra.host" $ }} {{ $.Values.cassandra.config.ports.cql }}; do echo waiting for cassandra service; sleep 1; done;']
-          {{- with $serviceValues.containerSecurityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
         - name: check-cassandra
           image: "{{ $.Values.cassandra.image.repo }}:{{ $.Values.cassandra.image.tag }}"
           imagePullPolicy: {{ $.Values.cassandra.image.pullPolicy }}
@@ -92,16 +85,20 @@ spec:
                   fieldPath: status.podIP
             - name: SERVICES
               value: {{ $service }}
+            {{- if ne (include "temporal.persistence.driver" (list $ "default")) "custom" }}
             - name: TEMPORAL_STORE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "temporal.persistence.secretName" (list $ "default") }}
                   key: {{ include "temporal.persistence.secretKey" (list $ "default") }}
+            {{- end }}
+            {{- if ne (include "temporal.persistence.driver" (list $ "visibility")) "custom" }}
             - name: TEMPORAL_VISIBILITY_STORE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ include "temporal.persistence.secretName" (list $ "visibility") }}
                   key: {{ include "temporal.persistence.secretKey" (list $ "visibility") }}
+            {{- end }}
           {{- if and (hasKey $.Values.server "internalFrontend") $.Values.server.internalFrontend.enabled }}
             - name: USE_INTERNAL_FRONTEND
               value: "1"
